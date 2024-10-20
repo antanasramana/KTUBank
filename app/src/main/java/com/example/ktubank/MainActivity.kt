@@ -13,17 +13,26 @@ import android.nfc.tech.Ndef
 import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.tooling.preview.Preview
+import com.example.ktubank.BiometricPromptManager.BiometricResult
 import com.example.ktubank.nfc.NdefMessageParser
 import com.example.ktubank.ui.theme.KTUBankTheme
 import java.math.BigDecimal
 
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
+    private val promptManager by lazy {
+        BiometricPromptManager(this)
+    }
     private lateinit var nfcAdapter: NfcAdapter
     private val bankBalanceViewModel by viewModels<BankBalanceViewModel>()
 
@@ -33,17 +42,20 @@ class MainActivity : ComponentActivity() {
         nfcAdapter = NfcAdapter.getDefaultAdapter(this);
         setContent {
             KTUBankTheme {
+                val biometricResult by promptManager.promptResults.collectAsState(initial = null)
+                var amountToDeposit by remember { mutableStateOf(BigDecimal.ZERO) }
+                var amountToWithdraw by remember { mutableStateOf(BigDecimal.ZERO) }
+
                 BankBalanceScreen(
                     balance = bankBalanceViewModel.accountBalance.toString(),
                     accountName = bankBalanceViewModel.accountName,
                     accountSurname = bankBalanceViewModel.accountSurname,
                     onDeposit = { depositAmount ->
-                        Toast.makeText(
-                            this,
-                            "Scan card to deposit $depositAmount €",
-                            Toast.LENGTH_LONG
-                        ).show()
-                        bankBalanceViewModel.changeAmountToChange(depositAmount);
+                        promptManager.showBiometricPrompt(
+                            "Authenticate to deposit",
+                            "Please authenticate using biometrics"
+                        )
+                        amountToDeposit = depositAmount
                     },
                     onWithdraw = { withdrawAmount ->
                         if (withdrawAmount > bankBalanceViewModel.accountBalance) {
@@ -53,14 +65,48 @@ class MainActivity : ComponentActivity() {
                                 Toast.LENGTH_SHORT
                             ).show()
                         }
-                        Toast.makeText(
-                            this,
-                            "Scan card to withdraw $withdrawAmount €",
-                            Toast.LENGTH_LONG
-                        ).show()
-                        bankBalanceViewModel.changeAmountToChange(-withdrawAmount)
+                        promptManager.showBiometricPrompt(
+                            "Authenticate to withdraw",
+                            "Please authenticate using biometrics"
+                        )
+                        amountToWithdraw = withdrawAmount
+
                     }
                 )
+                biometricResult?.let { result ->
+                    if (amountToDeposit != BigDecimal.ZERO) {
+                        when (result) {
+                            BiometricResult.AuthenticationSuccess -> {
+                                Toast.makeText(
+                                    this,
+                                    "Scan card to deposit $amountToDeposit €",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                                bankBalanceViewModel.changeAmountToChange(amountToDeposit);
+                                amountToDeposit = BigDecimal.ZERO;
+                                promptManager.resetBiometricResult()
+                            }
+
+                            else -> {}
+                        }
+                    }
+                    if (amountToWithdraw != BigDecimal.ZERO) {
+                        when (result) {
+                            BiometricResult.AuthenticationSuccess -> {
+                                Toast.makeText(
+                                    this,
+                                    "Scan card to withdraw $amountToWithdraw €",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                                bankBalanceViewModel.changeAmountToChange(-amountToWithdraw)
+                                amountToWithdraw = BigDecimal.ZERO;
+                                promptManager.resetBiometricResult()
+                            }
+
+                            else -> {}
+                        }
+                    }
+                }
             }
         }
     }

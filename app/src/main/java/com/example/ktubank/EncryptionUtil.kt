@@ -13,7 +13,7 @@ import javax.crypto.spec.GCMParameterSpec
 class EncryptionUtil {
 
     private val keyAlias =
-        "myEncryptionKeyAlias" // This alias will be used to refer to the key in Keystore
+        "KTUBankEncryptionKey" // This alias will be used to refer to the key in Keystore
     private val keystore = "AndroidKeyStore"
     private val gcmTagLength = 128 // GCM tag length in bits
     private val gcmNonceLength = 12 // GCM recommended nonce length (12 bytes)
@@ -55,16 +55,17 @@ class EncryptionUtil {
     fun encrypt(plainText: String): String {
         val secretKey = getSecretKey()
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        val nonce = ByteArray(gcmNonceLength)
-        SecureRandom().nextBytes(nonce) // Generate a random nonce
 
-        val gcmParameterSpec = GCMParameterSpec(gcmTagLength, nonce)
-        cipher.init(Cipher.ENCRYPT_MODE, secretKey, gcmParameterSpec)
+        // No need to provide a nonce; the system will generate one for us
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey)
+
+        // Retrieve the generated IV (nonce) from the cipher
+        val iv = cipher.iv
 
         val cipherText = cipher.doFinal(plainText.toByteArray(Charsets.UTF_8))
 
-        // Combine nonce and cipher text into a single byte array
-        val encryptedBytes = nonce + cipherText
+        // Combine nonce (IV) and cipher text into a single byte array
+        val encryptedBytes = iv + cipherText
 
         // Return the encrypted data as a Base64-encoded string
         return Base64.encodeToString(encryptedBytes, Base64.DEFAULT)
@@ -75,11 +76,13 @@ class EncryptionUtil {
         val secretKey = getSecretKey()
         val encryptedBytes = Base64.decode(encryptedText, Base64.DEFAULT)
 
-        val nonce = encryptedBytes.copyOfRange(0, gcmNonceLength)
+        // Extract the IV (nonce) from the beginning of the encrypted data
+        val iv = encryptedBytes.copyOfRange(0, gcmNonceLength)
         val cipherText = encryptedBytes.copyOfRange(gcmNonceLength, encryptedBytes.size)
 
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-        val gcmParameterSpec = GCMParameterSpec(gcmTagLength, nonce)
+        val gcmParameterSpec = GCMParameterSpec(gcmTagLength, iv)
+
         cipher.init(Cipher.DECRYPT_MODE, secretKey, gcmParameterSpec)
 
         val decryptedBytes = cipher.doFinal(cipherText)

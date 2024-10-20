@@ -13,6 +13,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.math.BigDecimal
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BankBalanceScreen(
     balance: String = "$10,250.75",
@@ -101,7 +102,12 @@ fun BankBalanceScreen(
             onValueChange = { amountInput = it },
             label = { Text("Enter amount") },
             modifier = Modifier.fillMaxWidth(0.8f),
-            singleLine = true
+            singleLine = true,
+            colors = TextFieldDefaults.textFieldColors(
+                containerColor = Color.White,
+                focusedLabelColor = Color.Black,
+                unfocusedLabelColor = Color.Gray
+            )
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -142,13 +148,4 @@ fun BankBalanceScreen(
             }
         }
     }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun PreviewBankBalanceScreen() {
-    BankBalanceScreen(
-        onDeposit = { /* Handle deposit */ },
-        onWithdraw = { /* Handle withdraw */ }
-    )
 }

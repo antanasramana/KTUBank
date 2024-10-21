@@ -184,8 +184,13 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 if (bankBalanceViewModel.amountToChange != BigDecimal.ZERO) {
+                    val encryptionUtil = EncryptionUtil()
+
                     val accountInfo = bankBalanceViewModel.toAccountInfo()
-                    val mRecord = NdefRecord.createTextRecord("en", accountInfo.toString())
+                    val accountInfoString = accountInfo.toString()
+                    val encryptedAccountInfo = encryptionUtil.encrypt(accountInfoString)
+
+                    val mRecord = NdefRecord.createTextRecord("en", encryptedAccountInfo)
                     val mMsg = NdefMessage(mRecord)
 
                     mNdef.writeNdefMessage(mMsg)
